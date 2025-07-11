@@ -2,17 +2,161 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NST Travels Booking</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>NST Travels – Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="module" src="app.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    nav button { margin: 5px; padding: 6px 12px; }
+    section { display: none; margin-top: 20px; }
+    section.active { display: block; }
+    input, button { margin: 4px 0; padding: 6px; width: 100%; max-width: 300px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+    table, th, td { border: 1px solid #999; padding: 5px; }
+  </style>
 </head>
 <body>
-  <h1>NST Travels Booking</h1>
-  <form id="bookingForm">
-    <input type="text" id="name" placeholder="Passenger Name" required />
-    <input type="text" id="tripId" placeholder="Trip ID" required />
-    <button type="submit">Book Now</button>
-  </form>
-  <script type="module" src="app.js"></script>
+  <h2>Narayanan Selvi Travels – Dashboard</h2>
+
+  <nav>
+    <button onclick="showSection('tripForm')">🚕 Trip Entry</button>
+    <button onclick="showSection('tripList')">📋 Trip Viewer</button>
+    <button onclick="showSection('driverMaster')">👨‍✈️ Driver Master</button>
+    <button onclick="showSection('vehicleMaster')">🚗 Vehicle Master</button>
+    <button onclick="showSection('invoiceView')">🧾 Invoice</button>
+  </nav>
+
+  <!-- 🚕 Trip Entry -->
+  <section id="tripForm" class="active">
+    <h3>Trip Entry</h3>
+    <form id="formTrip">
+      <input id="tripId" placeholder="Trip ID (e.g. TRIP20250711)" required />
+      <input id="date" type="date" required />
+      <input id="from" placeholder="From" required />
+      <input id="to" placeholder="To" required />
+      <input id="driver" placeholder="Driver Name" required />
+      <input id="vehicle" placeholder="Vehicle No." required />
+      <input id="amount" type="number" placeholder="Amount ₹" required />
+      <button type="submit">Save Trip</button>
+    </form>
+  </section>
+
+  <!-- 📋 Trip Viewer -->
+  <section id="tripList">
+    <h3>All Trips</h3>
+    <table id="tripsTable">
+      <thead>
+        <tr>
+          <th>ID</th><th>Date</th><th>From</th><th>To</th>
+          <th>Driver</th><th>Vehicle</th><th>Amount</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- 👨‍✈️ Driver Master -->
+  <section id="driverMaster">
+    <h3>Add/Edit Driver</h3>
+    <input id="dName" placeholder="Driver Name" />
+    <input id="dPhone" placeholder="Phone Number" />
+    <button onclick="saveDriver()">Save Driver</button>
+  </section>
+
+  <!-- 🚗 Vehicle Master -->
+  <section id="vehicleMaster">
+    <h3>Add/Edit Vehicle</h3>
+    <input id="vNo" placeholder="Vehicle No." />
+    <input id="vModel" placeholder="Model" />
+    <input id="vKM" type="number" placeholder="KM" />
+    <button onclick="saveVehicle()">Save Vehicle</button>
+  </section>
+
+  <!-- 🧾 Invoice Viewer -->
+  <section id="invoiceView">
+    <h3>Invoice Lookup</h3>
+    <input id="searchId" placeholder="Enter Trip ID" />
+    <button onclick="loadInvoice()">Load Invoice</button>
+    <div id="invoiceData" style="margin-top: 15px;"></div>
+  </section>
+
+  <script>
+    // Show/hide sections
+    function showSection(id) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    // 🚕 Trip Entry Submit
+    document.getElementById("formTrip").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        date: date.value,
+        from: from.value,
+        to: to.value,
+        driver: driver.value,
+        vehicle: vehicle.value,
+        amount: parseFloat(amount.value)
+      };
+      await window.firebaseUtils.saveTrip(tripId.value, data);
+      alert("✅ Trip saved!");
+      e.target.reset();
+      loadTrips();
+    });
+
+    // 📋 Load Trips
+    function loadTrips() {
+      window.firebaseUtils.getAllTrips((data) => {
+        const tbody = document.querySelector("#tripsTable tbody");
+        tbody.innerHTML = "";
+        if (data) {
+          Object.entries(data).forEach(([id, trip]) => {
+            const row = `<tr>
+              <td>${id}</td>
+              <td>${trip.date}</td>
+              <td>${trip.from}</td>
+              <td>${trip.to}</td>
+              <td>${trip.driver}</td>
+              <td>${trip.vehicle}</td>
+              <td>${trip.amount}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+          });
+        }
+      });
+    }
+
+    // 👨‍✈️ Save Driver
+    async function saveDriver() {
+      const data = { phone: dPhone.value };
+      await window.firebaseUtils.saveDriver(dName.value, data);
+      alert("✅ Driver Saved!");
+    }
+
+    // 🚗 Save Vehicle
+    async function saveVehicle() {
+      const data = { model: vModel.value, km: parseInt(vKM.value) };
+      await window.firebaseUtils.saveVehicle(vNo.value, data);
+      alert("✅ Vehicle Saved!");
+    }
+
+    // 🧾 Load Invoice
+    async function loadInvoice() {
+      const id = searchId.value.trim();
+      const trip = await window.firebaseUtils.getTrip(id);
+      invoiceData.innerHTML = trip
+        ? `<h4>Invoice – ${id}</h4>
+           <p><strong>Date:</strong> ${trip.date}</p>
+           <p><strong>From:</strong> ${trip.from}</p>
+           <p><strong>To:</strong> ${trip.to}</p>
+           <p><strong>Driver:</strong> ${trip.driver}</p>
+           <p><strong>Vehicle:</strong> ${trip.vehicle}</p>
+           <p><strong>Amount:</strong> ₹${trip.amount}</p>`
+        : "❌ Trip not found.";
+    }
+
+    // Auto-load trips on page open
+    loadTrips();
+  </script>
 </body>
 </html>
